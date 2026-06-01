@@ -1,0 +1,4 @@
+.env
+prometheus/secrets/
+.serena
+.idea

@@ -1,0 +1,87 @@
+{
+  "title": "POCAT Overview",
+  "uid": "pocat-overview",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Backend - JVM Heap Memory Used",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "jvm_memory_used_bytes{job=\"pocat-backend\", area=\"heap\"}",
+          "legendFormat": "Heap Used"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Backend - HTTP Request Rate",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "rate(http_server_requests_seconds_count{job=\"pocat-backend\"}[1m])",
+          "legendFormat": "{{method}} {{uri}} {{status}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Backend - HTTP Error Rate (5xx)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "rate(http_server_requests_seconds_count{job=\"pocat-backend\", status=~\"5..\"}[1m])",
+          "legendFormat": "5xx Error"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Backend - HTTP Response Time (p99)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "histogram_quantile(0.99, rate(http_server_requests_seconds_bucket{job=\"pocat-backend\"}[1m]))",
+          "legendFormat": "p99 latency"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Batch - JVM Heap Memory Used",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "jvm_memory_used_bytes{job=\"pocat-batch\", area=\"heap\"}",
+          "legendFormat": "Heap Used"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Batch - Active Threads",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "jvm_threads_live_threads{job=\"pocat-batch\"}",
+          "legendFormat": "Live Threads"
+        }
+      ]
+    }
+  ]
+}
