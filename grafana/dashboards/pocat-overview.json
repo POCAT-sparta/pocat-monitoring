@@ -2,86 +2,251 @@
   "title": "POCAT Overview",
   "uid": "pocat-overview",
   "schemaVersion": 38,
-  "version": 1,
+  "version": 2,
   "refresh": "30s",
   "panels": [
+
+    { "id": 100, "title": "🏷 경매", "type": "text", "options": { "content": "" },
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 2 } },
+
     {
       "id": 1,
-      "title": "Backend - JVM Heap Memory Used",
+      "title": "경매 등록 수 (rate/5m)",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
-      "targets": [
-        {
-          "datasource": "Prometheus",
-          "expr": "jvm_memory_used_bytes{job=\"pocat-backend\", area=\"heap\"}",
-          "legendFormat": "Heap Used"
-        }
-      ]
+      "gridPos": { "x": 0, "y": 2, "w": 8, "h": 8 },
+      "targets": [{
+        "datasource": "Prometheus",
+        "expr": "sum(rate(auction_registered_total[5m]))",
+        "legendFormat": "등록"
+      }]
     },
     {
       "id": 2,
-      "title": "Backend - HTTP Request Rate",
+      "title": "경매 종료 현황 (rate/5m)",
       "type": "timeseries",
-      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "gridPos": { "x": 8, "y": 2, "w": 8, "h": 8 },
       "targets": [
         {
           "datasource": "Prometheus",
-          "expr": "rate(http_server_requests_seconds_count{job=\"pocat-backend\"}[1m])",
-          "legendFormat": "{{method}} {{uri}} {{status}}"
+          "expr": "sum(rate(auction_ended_total{result=\"success\"}[5m]))",
+          "legendFormat": "낙찰"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(auction_ended_total{result=\"no_bidder\"}[5m]))",
+          "legendFormat": "유찰"
         }
       ]
     },
     {
       "id": 3,
-      "title": "Backend - HTTP Error Rate (5xx)",
+      "title": "경매 낙찰률 (%)",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
-      "targets": [
-        {
-          "datasource": "Prometheus",
-          "expr": "rate(http_server_requests_seconds_count{job=\"pocat-backend\", status=~\"5..\"}[1m])",
-          "legendFormat": "5xx Error"
-        }
-      ]
+      "gridPos": { "x": 16, "y": 2, "w": 8, "h": 8 },
+      "targets": [{
+        "datasource": "Prometheus",
+        "expr": "sum(rate(auction_ended_total{result=\"success\"}[1h])) / sum(rate(auction_registered_total[1h])) * 100",
+        "legendFormat": "낙찰률"
+      }]
     },
+
+    { "id": 101, "title": "💰 입찰 / 주문", "type": "text", "options": { "content": "" },
+      "gridPos": { "x": 0, "y": 10, "w": 24, "h": 2 } },
+
     {
       "id": 4,
-      "title": "Backend - HTTP Response Time (p99)",
+      "title": "입찰 수 (rate/5m)",
       "type": "timeseries",
-      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
-      "targets": [
-        {
-          "datasource": "Prometheus",
-          "expr": "histogram_quantile(0.99, rate(http_server_requests_seconds_bucket{job=\"pocat-backend\"}[1m]))",
-          "legendFormat": "p99 latency"
-        }
-      ]
+      "gridPos": { "x": 0, "y": 12, "w": 8, "h": 8 },
+      "targets": [{
+        "datasource": "Prometheus",
+        "expr": "sum(rate(bid_created_total[5m]))",
+        "legendFormat": "입찰"
+      }]
     },
     {
       "id": 5,
-      "title": "Batch - JVM Heap Memory Used",
+      "title": "주문 생성 수 (rate/5m)",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+      "gridPos": { "x": 8, "y": 12, "w": 8, "h": 8 },
       "targets": [
         {
           "datasource": "Prometheus",
-          "expr": "jvm_memory_used_bytes{job=\"pocat-batch\", area=\"heap\"}",
-          "legendFormat": "Heap Used"
+          "expr": "sum(rate(order_created_total{type=\"auction\"}[5m]))",
+          "legendFormat": "경매 낙찰"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(order_created_total{type=\"buyout\"}[5m]))",
+          "legendFormat": "즉시구매"
         }
       ]
     },
     {
       "id": 6,
-      "title": "Batch - Active Threads",
+      "title": "주문 취소 수 (rate/5m)",
       "type": "timeseries",
-      "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+      "gridPos": { "x": 16, "y": 12, "w": 8, "h": 8 },
+      "targets": [{
+        "datasource": "Prometheus",
+        "expr": "sum(rate(order_cancelled_total[5m]))",
+        "legendFormat": "취소"
+      }]
+    },
+
+    { "id": 102, "title": "💳 결제", "type": "text", "options": { "content": "" },
+      "gridPos": { "x": 0, "y": 20, "w": 24, "h": 2 } },
+
+    {
+      "id": 7,
+      "title": "자동결제 성공/실패 (rate/5m)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 22, "w": 8, "h": 8 },
       "targets": [
         {
           "datasource": "Prometheus",
-          "expr": "jvm_threads_live_threads{job=\"pocat-batch\"}",
-          "legendFormat": "Live Threads"
+          "expr": "sum(rate(payment_auto_success_total[5m]))",
+          "legendFormat": "성공"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(payment_auto_fail_total[5m]))",
+          "legendFormat": "실패"
         }
       ]
+    },
+    {
+      "id": 8,
+      "title": "자동결제 실패율 (%)",
+      "type": "timeseries",
+      "gridPos": { "x": 8, "y": 22, "w": 8, "h": 8 },
+      "targets": [{
+        "datasource": "Prometheus",
+        "expr": "sum(rate(payment_auto_fail_total[5m])) / sum(rate(payment_auto_attempt_total[5m])) * 100",
+        "legendFormat": "실패율"
+      }]
+    },
+    {
+      "id": 9,
+      "title": "직접결제 전환율 (%)",
+      "type": "timeseries",
+      "gridPos": { "x": 16, "y": 22, "w": 8, "h": 8 },
+      "targets": [{
+        "datasource": "Prometheus",
+        "expr": "sum(rate(payment_direct_attempt_total[5m])) / sum(rate(payment_auto_fail_total[5m])) * 100",
+        "legendFormat": "전환율"
+      }]
+    },
+    {
+      "id": 10,
+      "title": "결제 소요시간 (p50 / p95 / p99)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 30, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "histogram_quantile(0.50, sum(rate(payment_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p50"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "histogram_quantile(0.95, sum(rate(payment_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "histogram_quantile(0.99, sum(rate(payment_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p99"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "직접결제 성공/실패 (rate/5m)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 30, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(payment_direct_success_total[5m]))",
+          "legendFormat": "성공"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(payment_direct_fail_total[5m]))",
+          "legendFormat": "실패"
+        }
+      ]
+    },
+
+    { "id": 103, "title": "🖥 시스템", "type": "text", "options": { "content": "" },
+      "gridPos": { "x": 0, "y": 38, "w": 24, "h": 2 } },
+
+    {
+      "id": 12,
+      "title": "Backend - JVM Heap Memory",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 40, "w": 12, "h": 8 },
+      "targets": [{
+        "datasource": "Prometheus",
+        "expr": "jvm_memory_used_bytes{job=\"pocat-backend\", area=\"heap\"}",
+        "legendFormat": "Heap Used"
+      }]
+    },
+    {
+      "id": 13,
+      "title": "Backend - HTTP 요청률 (rate/1m)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 40, "w": 12, "h": 8 },
+      "targets": [{
+        "datasource": "Prometheus",
+        "expr": "rate(http_server_requests_seconds_count{job=\"pocat-backend\"}[1m])",
+        "legendFormat": "{{method}} {{uri}} {{status}}"
+      }]
+    },
+    {
+      "id": 14,
+      "title": "Backend - 5xx 에러율",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 48, "w": 12, "h": 8 },
+      "targets": [{
+        "datasource": "Prometheus",
+        "expr": "rate(http_server_requests_seconds_count{job=\"pocat-backend\", status=~\"5..\"}[1m])",
+        "legendFormat": "5xx Error"
+      }]
+    },
+    {
+      "id": 15,
+      "title": "Backend - HTTP 응답시간 p99",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 48, "w": 12, "h": 8 },
+      "targets": [{
+        "datasource": "Prometheus",
+        "expr": "histogram_quantile(0.99, rate(http_server_requests_seconds_bucket{job=\"pocat-backend\"}[1m]))",
+        "legendFormat": "p99 latency"
+      }]
+    },
+    {
+      "id": 16,
+      "title": "Batch - JVM Heap Memory",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 56, "w": 12, "h": 8 },
+      "targets": [{
+        "datasource": "Prometheus",
+        "expr": "jvm_memory_used_bytes{job=\"pocat-batch\", area=\"heap\"}",
+        "legendFormat": "Heap Used"
+      }]
+    },
+    {
+      "id": 17,
+      "title": "Batch - Active Threads",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 56, "w": 12, "h": 8 },
+      "targets": [{
+        "datasource": "Prometheus",
+        "expr": "jvm_threads_live_threads{job=\"pocat-batch\"}",
+        "legendFormat": "Live Threads"
+      }]
     }
   ]
 }
