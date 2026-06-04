@@ -1,0 +1,59 @@
+apiVersion: 1
+# FAKFA_FAIL 감지 ->  # backend 채널로 전송
+groups:
+  - orgId: 1
+    name: POCAT-Fakfa-Alerts
+    folder: POCAT
+    interval: 1m
+    rules:
+      - uid: pocat-backend-fakfa-fail
+        title: "카프카 장애 감지 [FAKFA_FAIL]"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: loki
+            model:
+              datasource:
+                type: loki
+                uid: loki
+              editorMode: code
+              expr: 'sum(count_over_time({service="backend", level="ERROR"} |= "[FAKFA_FAIL]" [5m]))'
+              instant: true
+              queryType: instant
+              refId: A
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 0
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - A
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: A
+              refId: C
+              type: threshold
+        noDataState: NoData
+        execErrState: Error
+        for: 0s
+        annotations:
+          summary: "카프카 장애 감지"
+          description: "최근 5분간 [FAKFA_FAIL] 로그 발생"
+        labels:
+          severity: error
+          channel: backend
+        isPaused: false

@@ -2,11 +2,41 @@ apiVersion: 1
 
 contactPoints:
   - orgId: 1
-    name: n8n-webhook
+    name: n8n-webhook-error
     receivers:
-      - uid: n8n-webhook-receiver
+      - uid: n8n-webhook-error-receiver
         type: webhook
         settings:
-          url: http://n8n:5678/webhook/grafana-alert
+          url: http://n8n:5678/webhook/grafana-alert-error
+          httpMethod: POST
+        disableResolveMessage: false
+
+  - orgId: 1
+    name: n8n-webhook-admin
+    receivers:
+      - uid: n8n-webhook-admin-receiver
+        type: webhook
+        settings:
+          url: http://n8n:5678/webhook/grafana-alert-admin
+          httpMethod: POST
+        disableResolveMessage: false
+
+  - orgId: 1
+    name: n8n-webhook-ai
+    receivers:
+      - uid: n8n-webhook-ai-receiver
+        type: webhook
+        settings:
+          url: http://n8n:5678/webhook/grafana-alert-ai
+          httpMethod: POST
+        disableResolveMessage: false
+
+  - orgId: 1
+    name: n8n-webhook-backend
+    receivers:
+      - uid: n8n-webhook-backend-receiver
+        type: webhook
+        settings:
+          url: http://n8n:5678/webhook/grafana-alert-backend
           httpMethod: POST
         disableResolveMessage: false
