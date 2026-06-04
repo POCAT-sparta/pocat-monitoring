@@ -139,24 +139,39 @@
     },
     {
       "id": 10,
-      "title": "결제 소요시간 (p50 / p95 / p99)",
+      "title": "결제 소요시간 by type (p50 / p95 / p99)",
       "type": "timeseries",
       "gridPos": { "x": 0, "y": 30, "w": 12, "h": 8 },
       "targets": [
         {
           "datasource": "Prometheus",
-          "expr": "histogram_quantile(0.50, sum(rate(payment_duration_seconds_bucket[5m])) by (le))",
-          "legendFormat": "p50"
+          "expr": "histogram_quantile(0.50, sum(rate(payment_duration_seconds_bucket{type=\"auto\"}[5m])) by (le))",
+          "legendFormat": "auto p50"
         },
         {
           "datasource": "Prometheus",
-          "expr": "histogram_quantile(0.95, sum(rate(payment_duration_seconds_bucket[5m])) by (le))",
-          "legendFormat": "p95"
+          "expr": "histogram_quantile(0.95, sum(rate(payment_duration_seconds_bucket{type=\"auto\"}[5m])) by (le))",
+          "legendFormat": "auto p95"
         },
         {
           "datasource": "Prometheus",
-          "expr": "histogram_quantile(0.99, sum(rate(payment_duration_seconds_bucket[5m])) by (le))",
-          "legendFormat": "p99"
+          "expr": "histogram_quantile(0.99, sum(rate(payment_duration_seconds_bucket{type=\"auto\"}[5m])) by (le))",
+          "legendFormat": "auto p99"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "histogram_quantile(0.50, sum(rate(payment_duration_seconds_bucket{type=\"direct\"}[5m])) by (le))",
+          "legendFormat": "direct p50"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "histogram_quantile(0.95, sum(rate(payment_duration_seconds_bucket{type=\"direct\"}[5m])) by (le))",
+          "legendFormat": "direct p95"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "histogram_quantile(0.99, sum(rate(payment_duration_seconds_bucket{type=\"direct\"}[5m])) by (le))",
+          "legendFormat": "direct p99"
         }
       ]
     },
@@ -179,14 +194,57 @@
       ]
     },
 
-    { "id": 103, "title": "🖥 시스템", "type": "text", "options": { "content": "" },
+    { "id": 104, "title": "🔔 결제 웹훅", "type": "text", "options": { "content": "" },
       "gridPos": { "x": 0, "y": 38, "w": 24, "h": 2 } },
+
+    {
+      "id": 18,
+      "title": "웹훅 처리 현황 (rate/5m)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 40, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(payment_webhook_attempt_total[5m]))",
+          "legendFormat": "시도"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(payment_webhook_success_total[5m]))",
+          "legendFormat": "성공"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(payment_webhook_fail_total[5m]))",
+          "legendFormat": "실패"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(payment_webhook_user_cancel_total[5m]))",
+          "legendFormat": "사용자 취소"
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "title": "금액 불일치 발생 수 (rate/5m)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 40, "w": 12, "h": 8 },
+      "targets": [{
+        "datasource": "Prometheus",
+        "expr": "sum(rate(payment_amount_mismatch_total[5m]))",
+        "legendFormat": "금액 불일치"
+      }]
+    },
+
+    { "id": 103, "title": "🖥 시스템", "type": "text", "options": { "content": "" },
+      "gridPos": { "x": 0, "y": 48, "w": 24, "h": 2 } },
 
     {
       "id": 12,
       "title": "Backend - JVM Heap Memory",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 40, "w": 12, "h": 8 },
+      "gridPos": { "x": 0, "y": 50, "w": 12, "h": 8 },
       "targets": [{
         "datasource": "Prometheus",
         "expr": "jvm_memory_used_bytes{job=\"pocat-backend\", area=\"heap\"}",
@@ -197,7 +255,7 @@
       "id": 13,
       "title": "Backend - HTTP 요청률 (rate/1m)",
       "type": "timeseries",
-      "gridPos": { "x": 12, "y": 40, "w": 12, "h": 8 },
+      "gridPos": { "x": 12, "y": 50, "w": 12, "h": 8 },
       "targets": [{
         "datasource": "Prometheus",
         "expr": "rate(http_server_requests_seconds_count{job=\"pocat-backend\"}[1m])",
@@ -208,7 +266,7 @@
       "id": 14,
       "title": "Backend - 5xx 에러율",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 48, "w": 12, "h": 8 },
+      "gridPos": { "x": 0, "y": 58, "w": 12, "h": 8 },
       "targets": [{
         "datasource": "Prometheus",
         "expr": "rate(http_server_requests_seconds_count{job=\"pocat-backend\", status=~\"5..\"}[1m])",
@@ -219,10 +277,10 @@
       "id": 15,
       "title": "Backend - HTTP 응답시간 p99",
       "type": "timeseries",
-      "gridPos": { "x": 12, "y": 48, "w": 12, "h": 8 },
+      "gridPos": { "x": 12, "y": 58, "w": 12, "h": 8 },
       "targets": [{
         "datasource": "Prometheus",
-        "expr": "histogram_quantile(0.99, rate(http_server_requests_seconds_bucket{job=\"pocat-backend\"}[1m]))",
+        "expr": "histogram_quantile(0.99, sum(rate(http_server_requests_seconds_bucket{job=\"pocat-backend\"}[1m])) by (le))",
         "legendFormat": "p99 latency"
       }]
     },
@@ -230,7 +288,7 @@
       "id": 16,
       "title": "Batch - JVM Heap Memory",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 56, "w": 12, "h": 8 },
+      "gridPos": { "x": 0, "y": 66, "w": 12, "h": 8 },
       "targets": [{
         "datasource": "Prometheus",
         "expr": "jvm_memory_used_bytes{job=\"pocat-batch\", area=\"heap\"}",
@@ -241,11 +299,67 @@
       "id": 17,
       "title": "Batch - Active Threads",
       "type": "timeseries",
-      "gridPos": { "x": 12, "y": 56, "w": 12, "h": 8 },
+      "gridPos": { "x": 12, "y": 66, "w": 12, "h": 8 },
       "targets": [{
         "datasource": "Prometheus",
         "expr": "jvm_threads_live_threads{job=\"pocat-batch\"}",
         "legendFormat": "Live Threads"
+      }]
+    },
+
+    { "id": 105, "title": "🤖 AI 사용량", "type": "text", "options": { "content": "" },
+      "gridPos": { "x": 0, "y": 74, "w": 24, "h": 2 } },
+
+    {
+      "id": 20,
+      "title": "AI 토큰 사용량 (rate/5m)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 76, "w": 8, "h": 8 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(ai_tokens_prompt_total[5m]))",
+          "legendFormat": "프롬프트 토큰"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "sum(rate(ai_tokens_completion_total[5m]))",
+          "legendFormat": "완료 토큰"
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "title": "AI 응답시간 (p50 / p95 / p99)",
+      "type": "timeseries",
+      "gridPos": { "x": 8, "y": 76, "w": 8, "h": 8 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "histogram_quantile(0.50, sum(rate(ai_response_time_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p50"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "histogram_quantile(0.95, sum(rate(ai_response_time_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "histogram_quantile(0.99, sum(rate(ai_response_time_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p99"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "title": "AI 에러 (rate/5m)",
+      "type": "timeseries",
+      "gridPos": { "x": 16, "y": 76, "w": 8, "h": 8 },
+      "targets": [{
+        "datasource": "Prometheus",
+        "expr": "sum by (errorType, model) (rate(ai_errors_total[5m]))",
+        "legendFormat": "{{errorType}} / {{model}}"
       }]
     }
   ]

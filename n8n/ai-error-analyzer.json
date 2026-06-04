@@ -1,0 +1,244 @@
+{
+  "name": "AI Error Analyzer",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "grafana-alert",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "dd0a16b5-1c21-4229-b532-80975817c60c",
+      "name": "Grafana Alert Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [2128, -400]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Grafana alert payload 파싱 — title / status / 시간 범위 추출\nconst alert = $input.first().json;\n\n// alertTitle: Grafana payload 구조의 다양한 자리에서 안전하게 추출\nconst alertTitle =\n  alert.title\n  || alert.commonLabels?.alertname\n  || alert.groupLabels?.alertname\n  || alert.alerts?.[0]?.labels?.alertname\n  || alert.alerts?.[0]?.annotations?.summary\n  || 'Unknown Alert';\n\n// 분석 대상 시간 범위 — 현재 시각 기준 5분 전 ~ 현재\nconst now = new Date();\nconst fiveMinAgo = new Date(now.getTime() - 5 * 60 * 1000);\n\n// Loki API는 nanosecond epoch 사용\nconst startNano = (fiveMinAgo.getTime() * 1_000_000).toString();\nconst endNano = (now.getTime() * 1_000_000).toString();\n\n// KST(UTC+9) 포맷팅 — 표시용\nfunction toKst(d) {\n  const k = new Date(d.getTime() + 9 * 3600 * 1000);\n  const Y = k.getUTCFullYear();\n  const M = String(k.getUTCMonth() + 1).padStart(2, '0');\n  const D = String(k.getUTCDate()).padStart(2, '0');\n  const h = String(k.getUTCHours()).padStart(2, '0');\n  const m = String(k.getUTCMinutes()).padStart(2, '0');\n  return { date: `${Y}-${M}-${D}`, time: `${h}:${m}` };\n}\nconst sK = toKst(fiveMinAgo);\nconst eK = toKst(now);\nconst timeRangeKst = sK.date === eK.date\n  ? `${sK.date} ${sK.time} ~ ${eK.time} (KST)`\n  : `${sK.date} ${sK.time} ~ ${eK.date} ${eK.time} (KST)`;\n\nreturn [{\n  json: {\n    alertTitle,\n    alertStatus: alert.status || 'firing',\n    lokiQuery: '{service=\"backend\", level=\"ERROR\"}',\n    startTime: startNano,\n    endTime: endNano,\n    timeRange: timeRangeKst\n  }\n}];"
+      },
+      "id": "d42c82df-6007-4c76-86da-06dd78a6e86e",
+      "name": "Parse Alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2352, -400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ce1a0f04-1f3b-4c17-8a7f-firing-check",
+              "leftValue": "={{ $json.alertStatus }}",
+              "rightValue": "firing",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "11112222-3333-4444-5555-firingfilter01",
+      "name": "Is Firing?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [2576, -400]
+    },
+    {
+      "parameters": {
+        "url": "http://loki:3100/loki/api/v1/query_range",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "query", "value": "={{ $('Parse Alert').first().json.lokiQuery }}" },
+            { "name": "start", "value": "={{ $('Parse Alert').first().json.startTime }}" },
+            { "name": "end", "value": "={{ $('Parse Alert').first().json.endTime }}" },
+            { "name": "limit", "value": "50" }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {}
+          }
+        }
+      },
+      "id": "bce41d9c-e85c-42e1-bfea-e89bf512584e",
+      "name": "Query Loki",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2800, -480]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "haslogs-d3f2-4a8c-9b1e-loglength",
+              "leftValue": "={{ ($json.data?.result || []).reduce((acc, s) => acc + (s.values?.length || 0), 0) }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "22223333-4444-5555-6666-haslogsfilter1",
+      "name": "Has Error Logs?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [3024, -480]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Loki 응답에서 ERROR 로그 추출 → AI Agent용 system/user prompt 구성\nconst lokiResponse = $input.first().json;\nconst alertInfo = $('Parse Alert').first().json;\n\nlet logLines = [];\n\nif (lokiResponse.data && lokiResponse.data.result) {\n  for (const stream of lokiResponse.data.result) {\n    if (stream.values) {\n      for (const [timestamp, line] of stream.values) {\n        logLines.push(line);\n      }\n    }\n  }\n}\n\n// 토큰 비용 절감을 위해 길이 제한\nconst maxChars = 6000;\nlet errorLogs = logLines.join('\\n---\\n');\nif (errorLogs.length > maxChars) {\n  errorLogs = errorLogs.substring(0, maxChars) + '\\n... (truncated)';\n}\n\nconst systemPrompt = `당신은 Spring Boot 애플리케이션 장애 분석 전문가입니다.\n에러 로그를 분석하여 아래 3가지 섹션으로 정리하세요. 각 섹션 헤더는 반드시 :mag: 이모지로 시작하세요.\n\n출력 템플릿 (이 구조와 이모지를 그대로 따르세요):\n\n:mag: *1. 에러 요약*\n• 발생 시각: ...\n• 에러 유형: ... (여러 종류면 각각 별도 bullet)\n• 발생 위치: ...\n\n:mag: *2. 원인 분석*\n• 각 에러 유형별로 근본 원인 추정\n• 관련 코드 위치/조건을 함께 언급\n\n:mag: *3. 조치 방안*\n• *즉시* — 지금 당장 할 수 있는 코드/설정 변경 (한 문장, 구체적으로)\n• *단기* — 며칠~몇 주 안에 적용할 개선 (한 문장)\n• *장기* — 구조/아키텍처 차원의 개선 (한 문장)\n\n출력 형식 — Slack mrkdwn 규칙 (반드시 준수):\n- 굵게는 *텍스트* (별표 1개). **텍스트**(별표 2개) 절대 사용 금지\n- 기울임은 _텍스트_\n- 인라인 코드는 \\`코드\\`\n- 코드 블록은 삼중 백틱으로 감싸기 (꼭 필요할 때만)\n- 헤더(#, ##, ###) 사용 금지\n- 가로 구분선(---) 사용 금지\n- 리스트는 • 으로 시작 (-, * 금지)\n- 한국어로 작성, 위에 명시된 :mag: 외의 추가 이모지는 자제\n- 간결하게`;\n\nconst userPrompt = `[Alert] ${alertInfo.alertTitle}\n[Status] ${alertInfo.alertStatus}\n[Time Range] ${alertInfo.timeRange}\n[Error Count] ${logLines.length}건\n\n--- 에러 로그 ---\n${errorLogs}`;\n\nreturn [{\n  json: {\n    systemPrompt,\n    userPrompt,\n    errorCount: logLines.length,\n    alertInfo\n  }\n}];"
+      },
+      "id": "99232d17-9d51-43ce-a2ce-2a4c37113d1a",
+      "name": "Build Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3248, -560]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.userPrompt }}",
+        "options": {
+          "systemMessage": "={{ $json.systemPrompt }}"
+        }
+      },
+      "id": "f942e0d3-ec25-4b1a-80be-64580f920746",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [3472, -560]
+    },
+    {
+      "parameters": {
+        "jsCode": "// AI Agent 응답을 Slack mrkdwn 메시지로 변환\nconst aiOutput = $input.first().json;\nconst promptData = $('Build Prompt').first().json;\n\nlet analysis = aiOutput.output || aiOutput.text || JSON.stringify(aiOutput);\n\n// Slack mrkdwn 호환 후처리 (모델이 표준 Markdown을 출력해도 안전하게 변환)\nanalysis = analysis\n  .replace(/\\*\\*(.+?)\\*\\*/g, '*$1*')   // **bold** -> *bold*\n  .replace(/^\\s*#+\\s+/gm, '')            // # / ## / ### 헤더 마커 제거\n  .replace(/^\\s*-{3,}\\s*$/gm, '')        // --- 가로 구분선 제거\n  .replace(/\\n{3,}/g, '\\n\\n');           // 연속 빈 줄 정리\n\nconst alertInfo = promptData.alertInfo;\nconst errorCount = promptData.errorCount;\n\n// 헤더 — 첫 줄 고정 + Time / Error Count만 표시\nconst text = `:rotating_light: *AI 에러 분석 리포트*\\n\\n` +\n  `*Time:* ${alertInfo.timeRange}\\n` +\n  `*Error Count:* ${errorCount}건\\n\\n` +\n  `${analysis}`;\n\nreturn [{ json: { text } }];"
+      },
+      "id": "6328da5b-f8a1-467f-b0b8-9c36fc7b7efa",
+      "name": "Format Slack Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3696, -560]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "#grafana-monitor"
+        },
+        "text": "={{ $json.text }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "id": "7442d90e-4cc8-4259-b0bf-042f06abb00e",
+      "name": "Send to Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [3920, -560]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'ok', message: 'AI 분석 완료 및 Slack 전송됨' }) }}",
+        "options": {}
+      },
+      "id": "5eebbae1-6cec-4d41-9f34-aafed3c4747b",
+      "name": "Respond to Grafana",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [4144, -560]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'skipped', reason: 'alert not in firing state — analysis bypassed', alertStatus: $('Parse Alert').first().json.alertStatus }) }}",
+        "options": {}
+      },
+      "id": "aaaa2222-bbbb-3333-cccc-skipresolved01",
+      "name": "Respond Skip (Resolved)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2800, -240]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: 'skipped', reason: 'no error logs in time range — likely Grafana NoData false-firing' }) }}",
+        "options": {}
+      },
+      "id": "bbbb3333-cccc-4444-dddd-skipnologs0011",
+      "name": "Respond Skip (No Logs)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [3248, -240]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Grafana Alert Webhook": {
+      "main": [[{ "node": "Parse Alert", "type": "main", "index": 0 }]]
+    },
+    "Parse Alert": {
+      "main": [[{ "node": "Is Firing?", "type": "main", "index": 0 }]]
+    },
+    "Is Firing?": {
+      "main": [
+        [{ "node": "Query Loki", "type": "main", "index": 0 }],
+        [{ "node": "Respond Skip (Resolved)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Query Loki": {
+      "main": [[{ "node": "Has Error Logs?", "type": "main", "index": 0 }]]
+    },
+    "Has Error Logs?": {
+      "main": [
+        [{ "node": "Build Prompt", "type": "main", "index": 0 }],
+        [{ "node": "Respond Skip (No Logs)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Build Prompt": {
+      "main": [[{ "node": "AI Agent", "type": "main", "index": 0 }]]
+    },
+    "AI Agent": {
+      "main": [[{ "node": "Format Slack Message", "type": "main", "index": 0 }]]
+    },
+    "Format Slack Message": {
+      "main": [[{ "node": "Send to Slack", "type": "main", "index": 0 }]]
+    },
+    "Send to Slack": {
+      "main": [[{ "node": "Respond to Grafana", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": []
+}
