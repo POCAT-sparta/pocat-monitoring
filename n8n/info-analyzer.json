@@ -1,0 +1,172 @@
+{
+  "name": "POCAT Info Analyzer",
+  "nodes": [
+    {
+      "id": "i-001",
+      "name": "Grafana Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "parameters": {
+        "path": "grafana-alert-info",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "responseData": "allEntries"
+      }
+    },
+    {
+      "id": "i-002",
+      "name": "Parse Alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300],
+      "parameters": {
+        "jsCode": "const alert = $input.first().json;\nconst alertStatus = alert.status || 'firing';\nconst now = new Date();\nconst fiveMinAgo = new Date(now.getTime() - 5 * 60 * 1000);\nconst startNano = (fiveMinAgo.getTime() * 1_000_000).toString();\nconst endNano = (now.getTime() * 1_000_000).toString();\nfunction toKst(d) {\n  const k = new Date(d.getTime() + 9 * 3600 * 1000);\n  return `${k.getUTCFullYear()}-${String(k.getUTCMonth()+1).padStart(2,'0')}-${String(k.getUTCDate()).padStart(2,'0')} ${String(k.getUTCHours()).padStart(2,'0')}:${String(k.getUTCMinutes()).padStart(2,'0')}`;\n}\nconst timeRangeKst = `${toKst(fiveMinAgo)} ~ ${toKst(now)} (KST)`;\nreturn [{ json: { alertStatus, startNano, endNano, timeRangeKst } }];"
+      }
+    },
+    {
+      "id": "i-003",
+      "name": "Is Firing?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [720, 300],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "strict", "version": 2 },
+          "conditions": [{ "id": "c1", "leftValue": "={{ $json.alertStatus }}", "rightValue": "firing", "operator": { "type": "string", "operation": "equals" } }],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "i-004",
+      "name": "Query Loki",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 200],
+      "parameters": {
+        "url": "http://loki:3100/loki/api/v1/query_range",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "query", "value": "{service=\"backend\", level=\"INFO\"} |~ \"\\\\[CARD_SYNC\\\\]|\\\\[ES_MIGRATION\\\\]|\\\\[RAG_REINDEX\\\\]|\\\\[PAYMENT_ESCALATION\\\\]\"" },
+            { "name": "start", "value": "={{ $('Parse Alert').first().json.startNano }}" },
+            { "name": "end", "value": "={{ $('Parse Alert').first().json.endNano }}" },
+            { "name": "limit", "value": "30" }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "i-005",
+      "name": "Has Logs?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1200, 200],
+      "parameters": {
+        "conditions": {
+          "options": { "typeValidation": "loose", "version": 2 },
+          "conditions": [{ "id": "c2", "leftValue": "={{ ($json.data?.result || []).reduce((a,s) => a + (s.values?.length || 0), 0) }}", "rightValue": 0, "operator": { "type": "number", "operation": "gt" } }],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "i-006",
+      "name": "Group by Tag",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1440, 100],
+      "parameters": {
+        "jsCode": "const lokiResponse = $input.first().json;\nconst alertInfo = $('Parse Alert').first().json;\n\nconst tagChannelMap = {\n  RAG_REINDEX:        '#ai-alert',\n  PAYMENT_ESCALATION: '#business-insight',\n  CARD_SYNC:          '#backend',\n  ES_MIGRATION:       '#backend',\n  DEFAULT:            '#error-alert',\n};\n\nconst fmt = '\\n\\n출력 형식 — Slack mrkdwn 규칙:\\n- 굵게는 *텍스트* (별표 1개, **텍스트** 금지)\\n- 인라인 코드는 `코드`\\n- 헤더(#) 사용 금지, 가로 구분선(---) 사용 금지\\n- 리스트는 • 으로 시작 (-, * 금지)\\n- 한국어로 작성, :mag: 외 이모지 자제, 간결하게';\n\nconst sysPrompts = {\n  RAG_REINDEX:        '당신은 POCAT AI RAG 재색인 작업 리포터입니다. 로그를 분석하여 3섹션(:mag: 헤더)으로 정리하세요.\\n:mag: *1. 작업 요약* • 시작/완료 시각/처리 건수/성공-실패 비율\\n:mag: *2. 상태 분석* • 정상 완료인지 부분 실패인지 판단\\n:mag: *3. 후속 조치* • 실패 건수가 있을 경우 권장 조치, 정상이면 \"정상 완료\" 한 줄' + fmt,\n  PAYMENT_ESCALATION: '당신은 POCAT 결제 승격 플로우 리포터입니다. 로그를 분석하여 3섹션(:mag: 헤더)으로 정리하세요.\\n:mag: *1. 플로우 요약* • 처리된 승격 건수/스킵 건수/완료 시각\\n:mag: *2. 상태 분석* • 정상 처리인지 이슈가 있는지 판단\\n:mag: *3. 후속 조치* • 이상 없으면 \"정상 처리\" 한 줄, 이슈 있으면 구체적 조치' + fmt,\n  CARD_SYNC:          '당신은 POCAT 카드 동기화 작업 리포터입니다. 로그를 분석하여 3섹션(:mag: 헤더)으로 정리하세요.\\n:mag: *1. 동기화 요약* • 완료 시각/신규 카드 수/처리 세트\\n:mag: *2. 상태 분석* • 정상 완료인지 부분 실패인지 판단\\n:mag: *3. 후속 조치* • 정상이면 \"정상 완료\" 한 줄, 이슈 있으면 구체적 조치' + fmt,\n  ES_MIGRATION:       '당신은 POCAT ES 마이그레이션 작업 리포터입니다. 로그를 분석하여 3섹션(:mag: 헤더)으로 정리하세요.\\n:mag: *1. 마이그레이션 요약* • 완료 시각/색인 건수/소요 시간\\n:mag: *2. 상태 분석* • 정상 완료인지 판단\\n:mag: *3. 후속 조치* • 정상이면 \"정상 완료\" 한 줄, 이슈 있으면 구체적 조치' + fmt,\n  DEFAULT:            '당신은 POCAT 운영 이벤트 리포터입니다. 로그를 분석하여 3섹션(:mag: 헤더)으로 정리하세요.\\n:mag: *1. 이벤트 요약* • 발생 시각/이벤트 유형/처리 결과\\n:mag: *2. 상태 분석* • 정상 여부 판단\\n:mag: *3. 후속 조치* • 필요 시 조치, 정상이면 \"정상\" 한 줄' + fmt,\n};\n\nlet allLines = [];\nif (lokiResponse.data && lokiResponse.data.result) {\n  for (const stream of lokiResponse.data.result) {\n    if (stream.values) {\n      for (const [, line] of stream.values) allLines.push(line);\n    }\n  }\n}\n\nconst tagGroups = {};\nfor (const line of allLines) {\n  const match = line.match(/\\[([A-Z_]+)\\]/);\n  const tag = (match && tagChannelMap[match[1]] !== undefined) ? match[1] : 'DEFAULT';\n  if (!tagGroups[tag]) tagGroups[tag] = [];\n  tagGroups[tag].push(line);\n}\n\nconst maxChars = 5000;\nreturn Object.entries(tagGroups).map(([tag, lines]) => {\n  let logs = lines.join('\\n---\\n');\n  if (logs.length > maxChars) logs = logs.substring(0, maxChars) + '\\n... (truncated)';\n  return { json: {\n    tag,\n    logCount: lines.length,\n    channelName: tagChannelMap[tag] || tagChannelMap.DEFAULT,\n    systemPrompt: sysPrompts[tag] || sysPrompts.DEFAULT,\n    userPrompt: `[${tag}] 이벤트\\n[Time Range] ${alertInfo.timeRangeKst}\\n[Log Count] ${lines.length}건\\n\\n--- 로그 ---\\n${logs}`,\n    alertInfo,\n  }};\n});"
+      }
+    },
+    {
+      "id": "i-007",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [1680, 100],
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.userPrompt }}",
+        "options": {
+          "systemMessage": "={{ $json.systemPrompt }}"
+        }
+      }
+    },
+    {
+      "id": "i-008",
+      "name": "Format Slack Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1920, 100],
+      "parameters": {
+        "jsCode": "const aiOutput = $input.first().json;\nconst original = $('Group by Tag').item.json;\nlet analysis = aiOutput.output || aiOutput.text || '분석 실패';\nanalysis = analysis\n  .replace(/\\*\\*(.+?)\\*\\*/g, '*$1*')\n  .replace(/^\\s*#+\\s+/gm, '')\n  .replace(/^\\s*-{3,}\\s*$/gm, '')\n  .replace(/\\n{3,}/g, '\\n\\n');\nconst text = `:information_source: *[${original.tag}] INFO 이벤트*\\n\\n*Time:* ${original.alertInfo.timeRangeKst}\\n*Log Count:* ${original.logCount}건\\n\\n${analysis}`;\nreturn [{ json: { text, channelName: original.channelName } }];"
+      }
+    },
+    {
+      "id": "i-009",
+      "name": "Send to Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [2160, 100],
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "="{{ $json.channelName }}"
+        },
+        "text": "={{ $json.text }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      }
+    },
+    {
+      "id": "i-010",
+      "name": "Skip (Resolved)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [960, 420],
+      "parameters": { "respondWith": "json", "responseBody": "={{ JSON.stringify({ status: 'skipped', reason: 'not firing' }) }}", "options": {} }
+    },
+    {
+      "id": "i-011",
+      "name": "Skip (No Logs)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1440, 320],
+      "parameters": { "respondWith": "json", "responseBody": "={{ JSON.stringify({ status: 'skipped', reason: 'no logs found' }) }}", "options": {} }
+    }
+  ],
+  "connections": {
+    "Grafana Webhook": { "main": [[{ "node": "Parse Alert", "type": "main", "index": 0 }]] },
+    "Parse Alert": { "main": [[{ "node": "Is Firing?", "type": "main", "index": 0 }]] },
+    "Is Firing?": { "main": [
+      [{ "node": "Query Loki", "type": "main", "index": 0 }],
+      [{ "node": "Skip (Resolved)", "type": "main", "index": 0 }]
+    ]},
+    "Query Loki": { "main": [[{ "node": "Has Logs?", "type": "main", "index": 0 }]] },
+    "Has Logs?": { "main": [
+      [{ "node": "Group by Tag", "type": "main", "index": 0 }],
+      [{ "node": "Skip (No Logs)", "type": "main", "index": 0 }]
+    ]},
+    "Group by Tag": { "main": [[{ "node": "AI Agent", "type": "main", "index": 0 }]] },
+    "AI Agent": { "main": [[{ "node": "Format Slack Message", "type": "main", "index": 0 }]] },
+    "Format Slack Message": { "main": [[{ "node": "Send to Slack", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {},
+  "versionId": "pocat-info-v2",
+  "meta": { "instanceId": "pocat-monitoring" },
+  "id": "pocat-info-analyzer",
+  "tags": []
+}

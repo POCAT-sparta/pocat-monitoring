@@ -9,18 +9,15 @@ policies:
     group_interval: 5m
     repeat_interval: 1h
     routes:
-      - receiver: n8n-webhook-admin
+      - receiver: n8n-webhook-warn
         matchers:
-          - name: channel
-            value: admin
-            matchType: =
-      - receiver: n8n-webhook-ai
+          - "level=warn"
+        group_wait: 30s
+        group_interval: 5m
+        repeat_interval: 1h
+      - receiver: n8n-webhook-info
         matchers:
-          - name: channel
-            value: ai
-            matchType: =
-      - receiver: n8n-webhook-backend
-        matchers:
-          - name: channel
-            value: backend
-            matchType: =
+          - "level=info"
+        group_wait: 30s
+        group_interval: 24h
+        repeat_interval: 24h

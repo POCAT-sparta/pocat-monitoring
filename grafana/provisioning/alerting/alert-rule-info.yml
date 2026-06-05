@@ -1,13 +1,13 @@
 apiVersion: 1
-#  EMBEDDING_FAIL 감지 -> ai-alert 채널
+
 groups:
   - orgId: 1
-    name: POCAT-Embedding-Alerts
+    name: POCAT-Info-Alerts
     folder: POCAT
-    interval: 1m
+    interval: 24h
     rules:
-      - uid: pocat-backend-embedding-fail
-        title: "임베딩 장애 감지 [EMBEDDING_FAIL]"
+      - uid: pocat-level-info
+        title: "Backend 주요 작업 완료/이벤트 감지"
         condition: C
         data:
           - refId: A
@@ -20,7 +20,7 @@ groups:
                 type: loki
                 uid: loki
               editorMode: code
-              expr: 'sum(count_over_time({service="backend", level="ERROR"} |= "[EMBEDDING_FAIL]" [5m]))'
+              expr: "sum(count_over_time({service=\"backend\", level=\"INFO\"} |~ `\\[CARD_SYNC\\]|\\[ES_MIGRATION\\]|\\[RAG_REINDEX\\]|\\[PAYMENT_ESCALATION\\]` [5m]))"
               instant: true
               queryType: instant
               refId: A
@@ -29,14 +29,12 @@ groups:
             model:
               conditions:
                 - evaluator:
-                    params:
-                      - 0
+                    params: [0]
                     type: gt
                   operator:
                     type: and
                   query:
-                    params:
-                      - A
+                    params: [A]
                   reducer:
                     params: []
                     type: last
@@ -51,9 +49,8 @@ groups:
         execErrState: Error
         for: 0s
         annotations:
-          summary: "임베딩 장애 감지"
-          description: "최근 5분간 [EMBEDDING_FAIL] 로그 발생"
+          summary: "Backend 주요 작업 이벤트 감지"
+          description: "최근 5분간 주요 배치/결제 INFO 로그 발생"
         labels:
-          severity: error
-          channel: ai
+          level: info
         isPaused: false

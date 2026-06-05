@@ -1,12 +1,12 @@
 apiVersion: 1
-#EMBEDDING_FAIL , FAKFA_FAIL , SLOW_QUERY 제외 알림 설정 -> error-alert 채널
+
 groups:
   - orgId: 1
     name: POCAT-Error-Alerts
     folder: POCAT
     interval: 1m
     rules:
-      - uid: pocat-backend-error
+      - uid: pocat-level-error
         title: "Backend ERROR 로그 감지"
         condition: C
         data:
@@ -20,7 +20,7 @@ groups:
                 type: loki
                 uid: loki
               editorMode: code
-              expr: 'sum(count_over_time({service="backend", level="ERROR"} !~ "\[EMBEDDING_FAIL\]|\[FAKFA_FAIL\]|\[SLOW_QUERY\]" [5m]))'
+              expr: 'sum(count_over_time({service="backend", level="ERROR"}[5m]))'
               instant: true
               queryType: instant
               refId: A
@@ -29,14 +29,12 @@ groups:
             model:
               conditions:
                 - evaluator:
-                    params:
-                      - 0
+                    params: [0]
                     type: gt
                   operator:
                     type: and
                   query:
-                    params:
-                      - A
+                    params: [A]
                   reducer:
                     params: []
                     type: last
@@ -54,5 +52,5 @@ groups:
           summary: "Backend ERROR 로그 감지"
           description: "최근 5분간 ERROR 레벨 로그 발생"
         labels:
-          severity: error
+          level: error
         isPaused: false

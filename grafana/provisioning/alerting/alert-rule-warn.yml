@@ -1,13 +1,13 @@
 apiVersion: 1
-# SLOW_QUERY 감지 ->  # backend 채널로 전송
+
 groups:
   - orgId: 1
-    name: POCAT-Fakfa-Alerts
+    name: POCAT-Warn-Alerts
     folder: POCAT
     interval: 1m
     rules:
-      - uid: pocat-backend-slow-query
-        title: "슬로우 쿼리감지 [SLOW_QUERY]"
+      - uid: pocat-level-warn
+        title: "Backend WARN 로그 감지"
         condition: C
         data:
           - refId: A
@@ -20,7 +20,7 @@ groups:
                 type: loki
                 uid: loki
               editorMode: code
-              expr: 'sum(count_over_time({service="backend", level="ERROR"} |= "[SLOW_QUERY]" [5m]))'
+              expr: 'sum(count_over_time({service="backend", level="WARN"}[5m]))'
               instant: true
               queryType: instant
               refId: A
@@ -29,14 +29,12 @@ groups:
             model:
               conditions:
                 - evaluator:
-                    params:
-                      - 0
+                    params: [0]
                     type: gt
                   operator:
                     type: and
                   query:
-                    params:
-                      - A
+                    params: [A]
                   reducer:
                     params: []
                     type: last
@@ -49,11 +47,10 @@ groups:
               type: threshold
         noDataState: NoData
         execErrState: Error
-        for: 0s
+        for: 5m
         annotations:
-          summary: "쿼리 장애 감지"
-          description: "최근 5분간 [SLOW_QUERY] 로그 발생"
+          summary: "Backend WARN 로그 감지"
+          description: "최근 5분간 WARN 레벨 로그 발생"
         labels:
-          severity: error
-          channel: backend
+          level: warn
         isPaused: false
