@@ -105,6 +105,13 @@ services:
     networks:
       - pocat-net
 
+  elasticsearch-exporter:
+    image: prometheuscommunity/elasticsearch-exporter:latest
+    command:
+      - '--es.uri=http://10.0.143.58:9200'
+    ports:
+      - "9114:9114"
+
 volumes:
   prometheus_data:
   grafana_data:
