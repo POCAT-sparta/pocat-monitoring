@@ -65,6 +65,8 @@ services:
       - N8N_BASIC_AUTH_ACTIVE=true
       - N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER}
       - N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD}
+      - N8N_SECURE_COOKIE=false
+      - N8N_PROXY_HOPS=1
     volumes:
       - n8n_data:/home/node/.n8n
     networks:
