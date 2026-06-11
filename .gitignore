@@ -2,3 +2,4 @@
 prometheus/secrets/
 .serena
 .idea
+mysql/.my.cnf

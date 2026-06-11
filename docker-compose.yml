@@ -15,6 +15,7 @@ services:
     networks:
       - pocat-net
     restart: unless-stopped
+
   grafana:
     image: grafana/grafana:latest
     container_name: grafana
@@ -36,6 +37,7 @@ services:
       - prometheus
       - loki
     restart: unless-stopped
+
   loki:
     image: grafana/loki:latest
     container_name: loki
@@ -48,6 +50,7 @@ services:
     networks:
       - pocat-net
     restart: unless-stopped
+
   n8n:
     image: n8nio/n8n:latest
     container_name: n8n
@@ -67,6 +70,7 @@ services:
     networks:
       - pocat-net
     restart: unless-stopped
+
   kafka-exporter:
     image: danielqsj/kafka-exporter:latest
     container_name: pocat-kafka-exporter
@@ -79,6 +83,7 @@ services:
       - '--kafka.server=10.0.132.228:9095'
     networks:
       - pocat-net
+
   redis-exporter:
     image: oliver006/redis_exporter:latest
     container_name: pocat-redis-exporter
@@ -89,16 +94,20 @@ services:
       - REDIS_ADDR=10.0.139.96:6379
     networks:
       - pocat-net
+
   mysql-exporter:
-    image: prom/mysqld-exporter:latest
+    image: prom/mysqld-exporter:v0.15.1
     container_name: pocat-mysql-exporter
     restart: unless-stopped
     ports:
       - "9104:9104"
-    environment:
-      - DATA_SOURCE_NAME=${MYSQL_EXPORTER_DSN}
+    volumes:
+      - ./mysql/.my.cnf:/home/exporter/.my.cnf:ro
+    command:
+      - "--config.my-cnf=/home/exporter/.my.cnf"
     networks:
       - pocat-net
+
   elasticsearch-exporter:
     image: prometheuscommunity/elasticsearch-exporter:latest
     container_name: pocat-elasticsearch-exporter
@@ -109,11 +118,13 @@ services:
       - "9114:9114"
     networks:
       - pocat-net
+
 volumes:
   prometheus_data:
   grafana_data:
   loki_data:
   n8n_data:
+
 networks:
   pocat-net:
     driver: bridge
