@@ -92,6 +92,7 @@ services:
       - "9121:9121"
     environment:
       - REDIS_ADDR=10.0.139.96:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
     networks:
       - pocat-net
 
