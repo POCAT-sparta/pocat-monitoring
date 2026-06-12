@@ -11,7 +11,7 @@ scrape_configs:
     metrics_path: /actuator/prometheus
     ec2_sd_configs:
       - region: ap-northeast-2
-        port: 8080
+        port: 8081
     relabel_configs:
       - source_labels: [__meta_ec2_tag_role]
         regex: app
