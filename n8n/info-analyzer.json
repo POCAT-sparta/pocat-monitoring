@@ -121,7 +121,7 @@
         "channelId": {
           "__rl": true,
           "mode": "name",
-          "value": "="{{ $json.channelName }}"
+          "value": "={{ $json.channelName }}"
         },
         "text": "={{ $json.text }}",
         "otherOptions": {
