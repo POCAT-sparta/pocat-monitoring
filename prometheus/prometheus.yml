@@ -27,6 +27,16 @@ scrape_configs:
         regex: batch
         action: keep
 
+  - job_name: "pocat-worker"
+    metrics_path: /actuator/prometheus
+    ec2_sd_configs:
+      - region: ap-northeast-2
+        port: 8081
+    relabel_configs:
+      - source_labels: [ __meta_ec2_tag_role ]
+        regex: worker
+        action: keep
+
   - job_name: "app-node"
     ec2_sd_configs:
       - region: ap-northeast-2
@@ -42,6 +52,15 @@ scrape_configs:
         port: 9100
     relabel_configs:
       - source_labels: [__meta_ec2_tag_role]
+        regex: batch
+        action: keep
+
+  - job_name: "worker-node"
+    ec2_sd_configs:
+      - region: ap-northeast-2
+        port: 9100
+    relabel_configs:
+      - source_labels: [ __meta_ec2_tag_role ]
         regex: batch
         action: keep
 
