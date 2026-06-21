@@ -2,7 +2,7 @@
   "title": "POCAT Overview",
   "uid": "pocat-overview",
   "schemaVersion": 38,
-  "version": 2,
+  "version": 3,
   "refresh": "30s",
   "panels": [
 
@@ -285,10 +285,80 @@
       }]
     },
     {
+      "id": 23,
+      "title": "Backend - HTTP 응답시간 p95",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 66, "w": 12, "h": 8 },
+      "targets": [{
+        "datasource": "Prometheus",
+        "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{job=\"pocat-backend\"}[1m])) by (le))",
+        "legendFormat": "p95 latency"
+      }]
+    },
+    {
+      "id": 24,
+      "title": "Backend - HikariCP 커넥션 풀",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 66, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "hikaricp_connections_active{job=\"pocat-backend\"}",
+          "legendFormat": "Active"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "hikaricp_connections_pending{job=\"pocat-backend\"}",
+          "legendFormat": "Pending"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "hikaricp_connections_idle{job=\"pocat-backend\"}",
+          "legendFormat": "Idle"
+        }
+      ]
+    },
+    {
+      "id": 25,
+      "title": "Backend - GC Pause (초)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 74, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "jvm_gc_pause_seconds_max{job=\"pocat-backend\"}",
+          "legendFormat": "max pause - {{action}}"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "rate(jvm_gc_pause_seconds_sum{job=\"pocat-backend\"}[1m]) / rate(jvm_gc_pause_seconds_count{job=\"pocat-backend\"}[1m])",
+          "legendFormat": "avg pause - {{action}}"
+        }
+      ]
+    },
+    {
+      "id": 26,
+      "title": "Backend - 앱 CPU 사용률 (%)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 74, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "process_cpu_usage{job=\"pocat-backend\"} * 100",
+          "legendFormat": "Process CPU %"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "system_cpu_usage{job=\"pocat-backend\"} * 100",
+          "legendFormat": "System CPU %"
+        }
+      ]
+    },
+    {
       "id": 16,
       "title": "Batch - JVM Heap Memory",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 66, "w": 12, "h": 8 },
+      "gridPos": { "x": 0, "y": 82, "w": 12, "h": 8 },
       "targets": [{
         "datasource": "Prometheus",
         "expr": "jvm_memory_used_bytes{job=\"pocat-batch\", area=\"heap\"}",
@@ -299,7 +369,7 @@
       "id": 17,
       "title": "Batch - Active Threads",
       "type": "timeseries",
-      "gridPos": { "x": 12, "y": 66, "w": 12, "h": 8 },
+      "gridPos": { "x": 12, "y": 82, "w": 12, "h": 8 },
       "targets": [{
         "datasource": "Prometheus",
         "expr": "jvm_threads_live_threads{job=\"pocat-batch\"}",
@@ -308,13 +378,13 @@
     },
 
     { "id": 105, "title": "🤖 AI 사용량", "type": "text", "options": { "content": "" },
-      "gridPos": { "x": 0, "y": 74, "w": 24, "h": 2 } },
+      "gridPos": { "x": 0, "y": 90, "w": 24, "h": 2 } },
 
     {
       "id": 20,
       "title": "AI 토큰 사용량 (rate/5m)",
       "type": "timeseries",
-      "gridPos": { "x": 0, "y": 76, "w": 8, "h": 8 },
+      "gridPos": { "x": 0, "y": 92, "w": 8, "h": 8 },
       "targets": [
         {
           "datasource": "Prometheus",
@@ -332,7 +402,7 @@
       "id": 21,
       "title": "AI 응답시간 (p50 / p95 / p99)",
       "type": "timeseries",
-      "gridPos": { "x": 8, "y": 76, "w": 8, "h": 8 },
+      "gridPos": { "x": 8, "y": 92, "w": 8, "h": 8 },
       "targets": [
         {
           "datasource": "Prometheus",
@@ -355,7 +425,7 @@
       "id": 22,
       "title": "AI 에러 (rate/5m)",
       "type": "timeseries",
-      "gridPos": { "x": 16, "y": 76, "w": 8, "h": 8 },
+      "gridPos": { "x": 16, "y": 92, "w": 8, "h": 8 },
       "targets": [{
         "datasource": "Prometheus",
         "expr": "sum by (errorType, model) (rate(ai_errors_total[5m]))",
