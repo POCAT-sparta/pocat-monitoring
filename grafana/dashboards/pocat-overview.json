@@ -2,7 +2,7 @@
   "title": "POCAT Overview",
   "uid": "pocat-overview",
   "schemaVersion": 38,
-  "version": 3,
+  "version": 4,
   "refresh": "30s",
   "panels": [
 
@@ -304,17 +304,17 @@
         {
           "datasource": "Prometheus",
           "expr": "hikaricp_connections_active{job=\"pocat-backend\"}",
-          "legendFormat": "Active"
+          "legendFormat": "{{instance}} · Active"
         },
         {
           "datasource": "Prometheus",
           "expr": "hikaricp_connections_pending{job=\"pocat-backend\"}",
-          "legendFormat": "Pending"
+          "legendFormat": "{{instance}} · Pending"
         },
         {
           "datasource": "Prometheus",
           "expr": "hikaricp_connections_idle{job=\"pocat-backend\"}",
-          "legendFormat": "Idle"
+          "legendFormat": "{{instance}} · Idle"
         }
       ]
     },
@@ -327,12 +327,12 @@
         {
           "datasource": "Prometheus",
           "expr": "jvm_gc_pause_seconds_max{job=\"pocat-backend\"}",
-          "legendFormat": "max pause - {{action}}"
+          "legendFormat": "{{instance}} · {{action}} max"
         },
         {
           "datasource": "Prometheus",
           "expr": "rate(jvm_gc_pause_seconds_sum{job=\"pocat-backend\"}[1m]) / rate(jvm_gc_pause_seconds_count{job=\"pocat-backend\"}[1m])",
-          "legendFormat": "avg pause - {{action}}"
+          "legendFormat": "{{instance}} · {{action}} avg"
         }
       ]
     },
@@ -345,12 +345,12 @@
         {
           "datasource": "Prometheus",
           "expr": "process_cpu_usage{job=\"pocat-backend\"} * 100",
-          "legendFormat": "Process CPU %"
+          "legendFormat": "{{instance}} · Process"
         },
         {
           "datasource": "Prometheus",
           "expr": "system_cpu_usage{job=\"pocat-backend\"} * 100",
-          "legendFormat": "System CPU %"
+          "legendFormat": "{{instance}} · System"
         }
       ]
     },
