@@ -2,7 +2,7 @@
   "title": "POCAT Overview",
   "uid": "pocat-overview",
   "schemaVersion": 38,
-  "version": 4,
+  "version": 5,
   "refresh": "30s",
   "panels": [
 
@@ -431,6 +431,51 @@
         "expr": "sum by (errorType, model) (rate(ai_errors_total[5m]))",
         "legendFormat": "{{errorType}} / {{model}}"
       }]
+    },
+
+    { "id": 106, "title": "🗄 DB (MySQL)", "type": "text", "options": { "content": "" },
+      "gridPos": { "x": 0, "y": 100, "w": 24, "h": 2 } },
+
+    {
+      "id": 27,
+      "title": "DB - 커넥션 수 (Connected / Running)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 102, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "mysql_global_status_threads_connected",
+          "legendFormat": "{{instance}} · Connected"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "mysql_global_status_threads_running",
+          "legendFormat": "{{instance}} · Running"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "mysql_global_variables_max_connections",
+          "legendFormat": "{{instance}} · Max (limit)"
+        }
+      ]
+    },
+    {
+      "id": 28,
+      "title": "DB - 커넥션 사용률 (%)",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 102, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "mysql_global_status_threads_connected / mysql_global_variables_max_connections * 100",
+          "legendFormat": "{{instance}} · 현재 사용률 %"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "mysql_global_status_max_used_connections / mysql_global_variables_max_connections * 100",
+          "legendFormat": "{{instance}} · 최대 사용률 %"
+        }
+      ]
     }
   ]
 }
